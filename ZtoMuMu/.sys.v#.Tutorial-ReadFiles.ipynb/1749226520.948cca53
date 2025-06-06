@@ -1,0 +1,424 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "03df4956",
+   "metadata": {},
+   "source": [
+    "# Setting the ROOT environment and read files\n",
+    "\n",
+    "In this first example we will go over some useful methods to open files and have a quick look to the data stores inside.\n",
+    "\n",
+    "\n",
+    "The file corresponds with a very small fraction of data from the ```/DoubleMuon/``` dataset of 2022 data i.e. collisions collected by muon triggers. It contains data in NanoAOD format, which is the type of data that results from the whole processing chain in CMS. \n",
+    "\n",
+    "To know about the NanoAOD format and the kind of information that is stored inside, you can check the CMS [WorkBookNanoAOD](https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookNanoAOD).\n",
+    "\n",
+    "## Setup the environment\n",
+    "\n",
+    "We will start by setting up the environment. These tutorials will be done in PyROOT, so will will have to import the Python ROOT package.\n",
+    "\n",
+    "Note: ROOT programming with c++ is not covered here."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "25f3dadc",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import ROOT"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dba40cbc",
+   "metadata": {},
+   "source": [
+    "## Reading a file\n",
+    "\n",
+    "Data in ROOT is included in ```.root``` files with ROOT formats. Every time that we want to read a file, we first have to create a TFile object from which we can open it. We can then explore the contents of the TFile by calling ```.ls()```:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5f509a2a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Read the file\n",
+    "file = ROOT.TFile.Open(\"/eos/user/f/fernance/standard-TutoriasFiles/43718dea-5cd4-48a7-b73b-df168edf1fac.root\")\n",
+    "\n",
+    "# Show what it is inside\n",
+    "file.ls()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "723466a3",
+   "metadata": {},
+   "source": [
+    "As we can see there are different objects stored in the file. For now we will focus on one of the TTree objects, called \"Events\". As the name indicates, this TTree contains the events stored in this file."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "32d57887",
+   "metadata": {},
+   "source": [
+    "## TTrees\n",
+    "\n",
+    "We can get this TTree with the method ```Get()``` indicating its name ```\"Events\"```:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5084a63c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Get the TTree\n",
+    "ttree = file.Get('Events')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "38b9bed2",
+   "metadata": {},
+   "source": [
+    "### Quick exploration of the TTree content\n",
+    "\n",
+    "We can explore the content of the TTree and the branch structure by calling ```Print()``` on the TTree object. This will let us know the type of data stored in them, the size occupied by each branch and other useful information:\n",
+    "\n",
+    "*Note: For now this example only covers plan data formats. That is, the data that we are accessing are just arrays of integers (Int_t), floats (Float_t) or booleans (Bool_t)*"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "48c73c2b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Print TTree content\n",
+    "ttree.Print()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ea988705",
+   "metadata": {},
+   "source": [
+    "Since there are too many branches the output is very long. We can select the ones that we want to print by typing fractions of their name:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "e086723e",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Print TTree content only for Muon branches\n",
+    "ttree.Print(\"Muon_*\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "65408342",
+   "metadata": {},
+   "source": [
+    "We can also check the values of the different branches with the method ```Scan()``` that show the data in a columnar way. However, since there are too many branches the information will only be plotted for the first ones:\n",
+    "\n",
+    "*Note: We are only showing the information of the first 10 events of the TTree*"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1f62ba4c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ttree.Scan(\"\", \"\", \"\", 10)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b322d974",
+   "metadata": {},
+   "source": [
+    "In the following examples we will explore some muon variables. We will have a look at some of them to get familiar with the data structure. This can be done by specifying the branches we want to read delimited by ```:``` e.g."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "a9372c7b",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ttree.Scan(\"Muon_pt:Muon_eta:Muon_phi\", \"\", \"\", 10)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "932d438b",
+   "metadata": {},
+   "source": [
+    "In the example above, each ```Row``` represents one event. Within each row/event, the printed objects are indicated as ```Instance```. From this printout we can know that the first event (Row = 0) has two muons (Instances 0 and 1); the second event (Row = 1) has three muons (Instances 0, 1 and 2)... etc as well as their values of transverse momentum, pseudorapidity and azimuthal angle."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2ad645e3",
+   "metadata": {},
+   "source": [
+    "### Setting aliases on an existing TTree\n",
+    "\n",
+    "In many occasions we will want to get more complicated physical observables that are not in the TTree, but that can be derived from information that is already stored inside. If the observable is not much complex we can define an alias that will compute the observable that will be available in the TTree.\n",
+    "\n",
+    "For example, we have the values of pt, eta and phi for every muon. From these values we could compute the invariant mass for the first two muons of the event and define an alias:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5a9c0aa3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ttree.SetAlias('Dimuon_mass', 'sqrt(2*Muon_pt[0]*Muon_pt[1]*(cosh(Muon_eta[0] - Muon_eta[1]) - cos(Muon_phi[0] - Muon_phi[1])))')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "def915b1",
+   "metadata": {},
+   "source": [
+    "And then show it in an scan in the same way as before:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b0fcbe33",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ttree.Scan(\"Muon_pt:Muon_eta:Muon_phi:Dimuon_mass\", \"\", \"\", 10)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "900f5889",
+   "metadata": {},
+   "source": [
+    "See how know the last collumn is shown the invariant mass computed with the first two muons of the event. This is a \"per event defined observable\" so we will have it once per row and duplicated for each instance. In cases where we don't have at least two muons to compute it from, it will be left empty."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d950bd5c",
+   "metadata": {},
+   "source": [
+    "### Loop over the TTree events\n",
+    "\n",
+    "For more complicated actions on the TTree, we will need to loop over the events, this can be done in many ways, here we have two equivalent examples:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4125a7e3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Numer of entries of the TTree\n",
+    "nEvents = ttree.GetEntries()\n",
+    "print(\"TTree 'Events' has %i events\"%nEvents)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "37cd449c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Loop over TTree by accessing a given entry\n",
+    "for e in range(0, 10):\n",
+    "    ttree.GetEntry(e)\n",
+    "    nMuon = ttree.nMuon\n",
+    "    print(\"Event %i has %i muons\"%(e, nMuon))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "59584171",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Loop over the events of a TTree\n",
+    "for e,event in enumerate(ttree):\n",
+    "    if e>9:\n",
+    "        break\n",
+    "    nMuon = event.nMuon\n",
+    "    print(\"Event %i has %i muons\"%(e, nMuon))\n",
+    "    e+=1"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0fc6dc07",
+   "metadata": {},
+   "source": [
+    "## Quick draw in TTree\n",
+    "\n",
+    "If we just want to explore how variables are distributed, we can quickly draw them using the TTree (including aliases). When doing this in interactive root in the terminal the plot will just appear (not covered here) but when using PyROOT we have to create the canvas ourselves. This is a TCanvas ROOT object that we can manipulate:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f82bb090",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Canvas creation:\n",
+    "canvas = ROOT.TCanvas(\"canvas\", \"My first canvas\", 600, 500) # 600 and 500 and width and height of the canvas\n",
+    "canvas.cd() # To indicate we are going to draw here\n",
+    "\n",
+    "# draw:\n",
+    "ttree.Draw(\"Muon_pt\")\n",
+    "\n",
+    "# and save into a png which can be do in two different ways:\n",
+    "canvas.SaveAs(\"MyFirstPlot_SaveAs.png\")\n",
+    "canvas.Print(\"MyFirstPlot_Print.png\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6c055936",
+   "metadata": {},
+   "source": [
+    "ONLY to see them in the notebooks we will use the Python IPython.display package that will allow us to see the images here (THIS IS NOT DONE IN ANALYSES):"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "266fb9c0",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from IPython.display import Image\n",
+    "\n",
+    "Image(filename=\"MyFirstPlot_SaveAs.png\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4d2d5851",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "Image(filename=\"MyFirstPlot_Print.png\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "8ab85742",
+   "metadata": {},
+   "source": [
+    "The following lines contain some parts of the code that can be used to better visualize the results:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "62d694ef",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Apply a selection (output will be the number of entries in the ):\n",
+    "ttree.Draw(\"Muon_pt\", \"Muon_pt > 10.0\")\n",
+    "\n",
+    "# Draw two things together:\n",
+    "ttree.Draw(\"Muon_pt\", \"Muon_pt > 50.0\", \"SAME\")\n",
+    "\n",
+    "# 2D drawing:\n",
+    "ttree.Draw(\"Muon_pt:Muon_eta\")\n",
+    "\n",
+    "# Only the first muon?\n",
+    "ttree.Draw(\"Muon_pt[0]\")\n",
+    "\n",
+    "# Or the second?\n",
+    "ttree.Draw(\"Muon_pt[1]\")\n",
+    "\n",
+    "# Set logarithmic scale in the canvas\n",
+    "canvas.SetLogy(1)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "34a227cc",
+   "metadata": {},
+   "source": [
+    "# To do:\n",
+    "\n",
+    "Just to practice a little bit, there are some things that could be tried to get practice:\n",
+    "\n",
+    "- For now we have only looked at the pt, but it would be nice to explore other basic quantities e.g. the azimuthal angle $\\phi$, pseudorapidity $\\eta$, charge, transverse impact parameter $d_{xy}$, isolation, number of hits... **Look at the TTree, find these variables and have a look, then answer the following questions:**\n",
+    "    - Why do you think $\\eta$ has this shape?\n",
+    "    - Is this the behavior you expect from $\\phi$? If yes/no, why?\n",
+    "    - How does the charge look like? Does it make sense to you? Why?\n",
+    "    - Look for the definition of the transverse impact parameter and also look at the distribution, does it make sense? What can be the muons with high $d_{xy}$?\n",
+    "    - Look at the charge of all the muons, why is it like this?\n",
+    "- Are the muons stored in an specific order? Why do you think is that? Does it happen the same for other variables?\n",
+    "- Another interesting quantities that are often studied when looking at dimuons are:\n",
+    "    - The relative directions between the muons ($\\Delta\\phi$, $\\Delta\\eta$, $\\Delta R$, 3D angle...)\n",
+    "    - How is the charge of the muons? Why?\n",
+    "    - Which other variables do you find interesting?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f3eeba79",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "@webio": {
+   "lastCommId": null,
+   "lastKernelId": null
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.12"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

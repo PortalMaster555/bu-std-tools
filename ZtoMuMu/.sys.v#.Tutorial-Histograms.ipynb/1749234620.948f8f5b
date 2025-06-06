@@ -1,0 +1,677 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "6ac0891a",
+   "metadata": {},
+   "source": [
+    "# Histograms\n",
+    "\n",
+    "This section covers histogram handling. This is guided exercise which starts by reading a file with plain CMS data with the objective to make some histograms from the collisions stored inside. \n",
+    "\n",
+    "The file is the same one as the previous tutorial, which corresponds with a very small fraction of data from the ```/DoubleMuon/``` dataset of 2022 data i.e. collisions collected by muon triggers."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "18e89d58",
+   "metadata": {},
+   "source": [
+    "## Preview: Load input file\n",
+    "\n",
+    "The file is loaded following the routines already explained in the previous tutorial. We access the TTree object and we initialize a new variable ```ttree```with it. We also count the total number of events into a variable ```nEvents```."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "2a3016e4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import ROOT\n",
+    "import math\n",
+    "\n",
+    "# Read the file and get the TTree\n",
+    "file = ROOT.TFile.Open(\"/eos/user/f/fernance/standard-TutoriasFiles/43718dea-5cd4-48a7-b73b-df168edf1fac.root\")\n",
+    "ttree = file.Get('Events')\n",
+    "nEvents = ttree.GetEntries()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "80074a36",
+   "metadata": {},
+   "source": [
+    "## 1 - Histogram initialization\n",
+    "\n",
+    "We first create the histogram objects. Each histogram object is defined by a name (cpp object label), the title which can be optionally given to the histograms, the number of bins and the minimium and maximum values that the histogram shows.\n",
+    "\n",
+    "In the future, each time that we put data in this histogram, it will be counted in the corresponding bin. We will be able to access the number of events that filled each one of the bins. However, it is important to take in mind that the bounds of the histograms **can't** be changed once created, once the histogram is filled.\n",
+    "\n",
+    "Here we define both 1-dimensional (one variable) and 2-dimensional histograms:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "c806a8e3",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hnMuon (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon_pt (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon_eta (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon1_pt (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon2_pt (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hdimuon_mass (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon_eta_phi (Potential memory leak).\n",
+      "Warning in <TNetXNGFile::Append>: Replacing existing TH1: hmuon_pt1_pt2 (Potential memory leak).\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Define 1-dimensional simple histograms: TH1F(key, title, nbins, xmin, xmax)\n",
+    "\n",
+    "hnMuon       = ROOT.TH1F(\"hnMuon\", \"Number of muons\", 10, 0, 10)       # Number of muons\n",
+    "hmuon_pt     = ROOT.TH1F(\"hmuon_pt\", \"Muon pT\", 100, 0, 100)           # Muon pt\n",
+    "hmuon_eta    = ROOT.TH1F(\"hmuon_eta\", \"Muon eta\", 100, -2.6, 2.6)      # Muon eta\n",
+    "hmuon1_pt    = ROOT.TH1F(\"hmuon1_pt\", \"Muon pT\", 80, 0, 100)           # Pt of the first muon\n",
+    "hmuon2_pt    = ROOT.TH1F(\"hmuon2_pt\", \"Muon pT\", 80, 0, 100)           # Pt of the second muon\n",
+    "hdimuon_mass = ROOT.TH1F(\"hdimuon_mass\", \"Dimuon mass\", 1000, 0, 150)  # Dimuon mass\n",
+    "\n",
+    "\n",
+    "# Define 2-dimensional simple histograms: TH2F(key, title, nbins, xmin, xmax)\n",
+    "\n",
+    "hmuon_eta_phi = ROOT.TH2F(\"hmuon_eta_phi\", \"Muon phi vs eta\", 80, -3.14, 3.14, 80, -2.4, 2.4)   # Leading vs trailing muon pt\n",
+    "hmuon_pt1_pt2 = ROOT.TH2F(\"hmuon_pt1_pt2\", \"Trailing vs leading muon pt\", 80, 0, 100, 80, 0, 100)   # Leading vs trailing muon pt"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9b6c9686",
+   "metadata": {},
+   "source": [
+    "## 2 - Histogram filling\n",
+    "\n",
+    "We will use the histograms to study the collision data, so we will fill them with the data that we have in the file. In the example below, we loop over the events, we access the values of the physics observables that we want to study, and with these values we fill the histograms.\n",
+    "\n",
+    "To loop over the events in the TTree ```ttree``` we run an iterable ```e``` from 0 to ```nEvents```. Every time that the call ```ttree.GetEntry(e)``` we access the TTree information for the event iterable number ```e```. The fill the histograms accordingly to what we want to represent in them:\n",
+    "\n",
+    "- The muon histograms ```hmuon_pt```, ```hmuon_eta``` and ```hmuon_eta_phi``` are filled **per reconstructed muon**. That is, for every muon of every event.\n",
+    "- The dimuon histograms ```hmuon1_pt```, ```hmuon2_pt```, ```hdimuon_mass```, and ```hmuon_pt1_pt2``` are filled **once per event**, for every event that has at least two reconstructed muons.\n",
+    "\n",
+    "Some notes:\n",
+    "- Some of the histograms are filled only if the events have at least two muons i.e. if they fulfill a given condition. This conditions are called *selection* or *cuts* that are applied to the events. They are used to select the physics phenomena that we want to explore.\n",
+    "- The number ```e``` is just an iterable with no meaning. The events can be idenfitied by the event id, which is a number stored as any other variable, that has nothing to do with that.\n",
+    "- Additionally, a progress bar is added to track the filling process. This is only for illustration, but not necessary, and not recommmended if running over a huge amount of data as it will make the loop slower."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "1b3ca7af",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "100%|█████████▉| 615832/615920 [09:51<00:00, 1080.40it/s]"
+     ]
+    }
+   ],
+   "source": [
+    "# Auxiliar progress bar to track the progress\n",
+    "\n",
+    "import tqdm\n",
+    "\n",
+    "pbar = tqdm.tqdm(total=nEvents) # Auxiliar progress bar\n",
+    "\n",
+    "# Loop over TTree by accessing a given entry \n",
+    "for e in range(0, nEvents):\n",
+    "    \n",
+    "    pbar.update(1)\n",
+    "    ttree.GetEntry(e)\n",
+    "    \n",
+    "    nMuon = ttree.nMuon\n",
+    "    hnMuon.Fill(nMuon)\n",
+    "    \n",
+    "    # Loop over all muons in the event\n",
+    "    for i in range(0, nMuon):\n",
+    "        \n",
+    "        hmuon_pt.Fill(ttree.Muon_pt[i])\n",
+    "        hmuon_eta.Fill(ttree.Muon_eta[i])\n",
+    "        hmuon_eta_phi.Fill(ttree.Muon_eta[i], ttree.Muon_phi[i])\n",
+    "    \n",
+    "    # Additionally, for events with at least two muons, we fill:\n",
+    "    if nMuon >= 2:\n",
+    "        \n",
+    "        hmuon1_pt.Fill(ttree.Muon_pt[0])\n",
+    "        hmuon2_pt.Fill(ttree.Muon_pt[1])\n",
+    "        \n",
+    "        mass = math.sqrt(2*ttree.Muon_pt[0]*ttree.Muon_pt[1]*(math.cosh(ttree.Muon_eta[0] - ttree.Muon_eta[1]) - math.cos(ttree.Muon_phi[0] - ttree.Muon_phi[1])))\n",
+    "        hdimuon_mass.Fill(mass)\n",
+    "        \n",
+    "        hmuon_pt1_pt2.Fill(ttree.Muon_pt[0], ttree.Muon_pt[1])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bb3b43cd",
+   "metadata": {},
+   "source": [
+    "### Projecting a TTree into a histogram\n",
+    "\n",
+    "In some occasions, if we don't need to apply much complex selections on our histograms, we can also fill them by using the method ```Project()```. This method is called on the TTree and it's telling it to project the data of a given branch (or alias) into an existing histogram. The histogram should be defined first with a distinct name. \n",
+    "\n",
+    "The advantage of this method is that it is much faster than looping over the events of the TTree.\n",
+    "\n",
+    "This example shows how to project a couple of histograms:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d06e5787",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "## Clone the histograms to project the TTree in the clones\n",
+    "hmuon_pt_projected = hmuon_pt.Clone(\"hmuon_pt_projected\")\n",
+    "hdimuon_mass_projected = hmuon_pt.Clone(\"hdimuon_mass_projected\")\n",
+    "\n",
+    "## Reset the clones to remove existing entries before filling them again\n",
+    "hmuon_pt_projected.Reset()\n",
+    "hdimuon_mass_projected.Reset()\n",
+    "\n",
+    "## Project muon pt\n",
+    "ttree.Project('hmuon_pt_projected', 'Muon_pt', '')\n",
+    "\n",
+    "## Project dimuon mass by creating an alias first\n",
+    "ttree.SetAlias('Dimuon_mass', 'sqrt(2*Muon_pt[0]*Muon_pt[1]*(cosh(Muon_eta[0] - Muon_eta[1]) - cos(Muon_phi[0] - Muon_phi[1])))')\n",
+    "ttree.Project('hdimuon_mass_projected', 'Dimuon_mass', 'nMuon > 1')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "a53d3edb",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Entries of histograms from loop are:  1134245.0 334196.0\n",
+      "Entries of histograms from projections are:  1134245.0 334196.0\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(\"Entries of histograms from loop are: \", hmuon_pt.GetEntries(), hdimuon_mass.GetEntries())\n",
+    "\n",
+    "print(\"Entries of histograms from projections are: \", hmuon_pt_projected.GetEntries(), hdimuon_mass_projected.GetEntries())"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "784d23d7",
+   "metadata": {},
+   "source": [
+    "## 3 -  Histogram visualization\n",
+    "\n",
+    "To visualize the histograms we need to plot them. Every plot in this example will be stored in a new created dir ```plots```. Additionally, we import some display tools to visualize them here."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "06dba750",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "from IPython.display import Image\n",
+    "\n",
+    "if not os.path.exists('plots/'):\n",
+    "    os.mkdir('plots/')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ff45c572",
+   "metadata": {},
+   "source": [
+    "### The canvas\n",
+    "\n",
+    "The canvas is used to plot the histograms. Once created, the can call ```c1.cd()``` to indicate that this is the canvas in which we will plot them. If not created, a default canvas will be created automatically. However, if we want to manipulate the plots and later save them into images, it is necessary to define the canvas into a variable that we can controll:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "3c3689e7",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<cppyy.gbl.TCanvas object at 0x5086de0>"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\r",
+      "100%|██████████| 615920/615920 [10:11<00:00, 1080.40it/s]"
+     ]
+    }
+   ],
+   "source": [
+    "## Init the canvas\n",
+    "\n",
+    "c1 = ROOT.TCanvas('c1', '', 600, 500)\n",
+    "c1.cd()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "69f15d23",
+   "metadata": {},
+   "source": [
+    "### Plotting a simple histogram\n",
+    "\n",
+    "In this block of code we will just plot some histograms with the default ROOT style. For now, we just modify the axis title to indicate what is plotted.\n",
+    "\n",
+    "To plot a histogram, we just call ```Draw()``` on the histogram we want to plot. Additionally, we can indicate how we want to show the histogram points. In the examples below we first plot the number of muons in points (option *\"PE\"*) and the muon transverse momentum pt in a line histogram (option *\"HIST\"*).\n",
+    "\n",
+    "Both plots are saved in .png format by calling ```c1.SaveAs()``` indicating the name of the output png file.\n",
+    "\n",
+    "Note that every time that we call ```Draw()``` on a new histogram the previous one is removed from the canvas."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d8f6e530",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "hnMuon.GetXaxis().SetTitle(\"Number of muons\")\n",
+    "hnMuon.GetYaxis().SetTitle(\"Number of events\")\n",
+    "hnMuon.Draw('PE')\n",
+    "c1.SaveAs('plots/hnMuon.png')\n",
+    "Image(filename='plots/hnMuon.png')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "643bf206",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "hmuon_pt.GetXaxis().SetTitle(\"Muon p_{T} (GeV)\") # Note the syntax\n",
+    "hmuon_pt.GetYaxis().SetTitle(\"Number of muons\")\n",
+    "hmuon_pt.Draw('HIST')\n",
+    "c1.SaveAs('plots/hmuon_pt.png')\n",
+    "Image(filename='plots/hmuon_pt.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "53a42b7c",
+   "metadata": {},
+   "source": [
+    "### Changing the style\n",
+    "\n",
+    "When showing histograms, it is important that the information is well represented. In many cases, it is useful to change the marker size, line width and colors as in the example below, where we show exactly the same histograms but with a different style:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "02e86862",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "hnMuon.SetMarkerStyle(20)\n",
+    "hnMuon.SetMarkerColor(ROOT.kBlack)\n",
+    "hnMuon.SetLineColor(ROOT.kBlack)\n",
+    "hnMuon.Draw('PE')\n",
+    "c1.SaveAs('plots/hnMuon_newStyle.png')\n",
+    "Image(filename='plots/hnMuon_newStyle.png')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "428552ad",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "hmuon_pt.SetLineColor(ROOT.kRed+2)\n",
+    "hmuon_pt.SetLineWidth(2)\n",
+    "hmuon_pt.SetFillColor(ROOT.kRed-9)\n",
+    "hmuon_pt.Draw('HIST')\n",
+    "c1.SaveAs('plots/hmuon_pt_newStyle.png')\n",
+    "Image(filename='plots/hmuon_pt_newStyle.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2b8e57d8",
+   "metadata": {},
+   "source": [
+    "### Plot two histograms together\n",
+    "\n",
+    "It is very common to plot two histogramas together to show how different distributions compare with each other. For example, we may want to compare the same variable for two different subsets of data, or for data and simulation, of two different variables for the same subset of data.\n",
+    "\n",
+    "This can be done by drawing two or more histograms sequentially by including the option *\"SAME\"*. This option will indicate the canvas to not remove the previous histogram(s) that were plotted there.\n",
+    "\n",
+    "In the following block of code, we want to compare the pt of the first muon (labelled with index 1) and the pt of the second muon (labelled with index 0) stored in the events. We apply a different style to each histogram so we can distinguish them:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fde195b4",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "## Plot the lepton number, comparing muons and electrons\n",
+    "\n",
+    "hmuon1_pt.GetXaxis().SetTitle(\"Muon p_{T} (GeV)\")\n",
+    "hmuon1_pt.GetYaxis().SetTitle(\"Number of events\")\n",
+    "hmuon1_pt.SetLineColor(ROOT.kRed)\n",
+    "hmuon1_pt.SetLineWidth(2)\n",
+    "hmuon2_pt.SetLineColor(ROOT.kBlue)\n",
+    "hmuon2_pt.SetLineWidth(2)\n",
+    "\n",
+    "hmuon1_pt.Draw('HIST')\n",
+    "hmuon2_pt.Draw('HIST, SAME') # NOTICE: The word same allows for plotting in the canvas without clearing it first\n",
+    "\n",
+    "c1.SaveAs('plots/hmuon_pt_comp.png')\n",
+    "Image(filename='plots/hmuon_pt_comp.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6f36b80b",
+   "metadata": {},
+   "source": [
+    "In the image above, we clearly see that one histogram is lying out of the canvas frame. This is becase the frame is adapted to the first histogram that is drawn. We can correct it by identifying the maximum value of both histograms and setting the value of the first one to that maximum value (with a little 20% marging). Then we can draw them again:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5ef4d5fb",
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [],
+   "source": [
+    "# Check the maximum values of the histograms\n",
+    "print(\"The maximum value for the first muon is %f\"%hmuon1_pt.GetMaximum())\n",
+    "print(\"The maximum value for the second muon is %f\"%hmuon2_pt.GetMaximum())\n",
+    "\n",
+    "maxValue = max([hmuon1_pt.GetMaximum(), hmuon2_pt.GetMaximum()])\n",
+    "\n",
+    "hmuon1_pt.SetMaximum(1.2*maxValue)\n",
+    "hmuon1_pt.Draw('HIST')\n",
+    "hmuon2_pt.Draw('HIST, SAME')\n",
+    "\n",
+    "c1.SaveAs('plots/hmuon_pt_comp.png')\n",
+    "Image(filename='plots/hmuon_pt_comp.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2b1de10b",
+   "metadata": {},
+   "source": [
+    "### The legend\n",
+    "\n",
+    "Still, if an outsider sees this histogram, they won't be able to identify which are the distributions that are shown. For this, we can add a legend as the example below:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "2b3052ce",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Legend object:\n",
+    "legend = ROOT.TLegend(0.15,0.7,0.48,0.85)\n",
+    "legend.SetBorderSize(0) # What is this for? Check it!\n",
+    "legend.SetTextSize(0.035) # Try to change it\n",
+    "legend.AddEntry(hmuon1_pt,\"Leading muon\",\"l\")\n",
+    "legend.AddEntry(hmuon2_pt,\"Trailing muon\",\"l\")\n",
+    "\n",
+    "# Draw it, update the canvas and save it again:\n",
+    "legend.Draw()\n",
+    "c1.Update()\n",
+    "c1.SaveAs('plots/hmuon_pt_comp.png')\n",
+    "Image(filename='plots/hmuon_pt_comp.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "aaece6bb",
+   "metadata": {},
+   "source": [
+    "### Improve the visualization\n",
+    "\n",
+    "Now we can look at other variables, as the dimuon invariant mass. We plot it following the same steps as before: "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "9604228a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "hdimuon_mass.GetXaxis().SetTitle(\"Dimuon invariant masss m_{#mu#mu} (GeV)\") # Note the syntax\n",
+    "hdimuon_mass.GetYaxis().SetTitle(\"Number of events\")\n",
+    "hdimuon_mass.SetLineColor(ROOT.kBlack)\n",
+    "hdimuon_mass.Draw('HIST')\n",
+    "c1.SaveAs('plots/hdimuon_mass.png')\n",
+    "Image(filename='plots/hdimuon_mass.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bc1763b9",
+   "metadata": {},
+   "source": [
+    "We can see how this variable is distributed following a very specific shape. There is some continuum but also some peaks. These peaks are representative of particle dimuon resonances i.e. particles that decay into the two muons that we are using to reconstruct the invariant mass.\n",
+    "\n",
+    "As the histogram covers many events in the low mass regime and limited statistics, it may be useful to explore this histogram in logarithm scale:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d5aaddb3",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "c1.SetLogy(1)\n",
+    "c1.SaveAs('plots/hdimuon_mass_logY.png')\n",
+    "Image(filename='plots/hdimuon_mass_logY.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d872149d",
+   "metadata": {},
+   "source": [
+    "Now the peak at 90 GeV clearly, but the ones at low mass are not resolved. To better explore them, we can also try to set a logarithmic scale in the x axis.\n",
+    "\n",
+    "To note: This histogram is defined from 0 to 140, so the 0 is not going to be well-defined in a logarithmic x axis. ROOT will asign a minimum value automatically, but we can also do it by defining the range of the histogram with ```.GetXaxis().SetRangeUser(0.4, 140.0)```:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "14510407",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "c1.SetLogx(1)\n",
+    "hdimuon_mass.GetXaxis().SetRangeUser(0.4, 140.0)\n",
+    "c1.SaveAs('plots/hdimuon_mass_logY_logX.png')\n",
+    "Image(filename='plots/hdimuon_mass_logY_logX.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "81d02105",
+   "metadata": {},
+   "source": [
+    "In all the examples above we can see a box in the upper right corner with some information of the histogram i.e. the number of entries, the mean and std deviation of the data included in the histogram. Since this box is many times irrelevant, we will want to remove it and we can do it by running:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "5c8f8ead",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "ROOT.gStyle.SetOptStat(0)\n",
+    "c1.SaveAs('plots/hdimuon_mass_logY_logX_noStat.png')\n",
+    "Image(filename='plots/hdimuon_mass_logY_logX_noStat.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5ed53e0c",
+   "metadata": {},
+   "source": [
+    "### 2-Dimensional plots\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "cb9f33aa",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Set the axis to linear scale again\n",
+    "c1.SetLogx(0)\n",
+    "c1.SetLogy(0)\n",
+    "\n",
+    "# Define the axis names for the 2-dimensional histogram\n",
+    "hmuon_eta_phi.GetXaxis().SetTitle(\"Muon #eta\")\n",
+    "hmuon_eta_phi.GetYaxis().SetTitle(\"Muon #phi\")\n",
+    "hmuon_eta_phi.Draw('COLZ')\n",
+    "\n",
+    "# Save an show\n",
+    "c1.SaveAs('plots/hmuon_eta_phi.png')\n",
+    "Image(filename='plots/hmuon_eta_phi.png')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bf801a9d",
+   "metadata": {},
+   "source": [
+    "### Check the histograms and save them"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f9df1e45",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from IPython.display import Image\n",
+    "\n",
+    "toDisplay = 'plots/hmuon_pt_comp.png'\n",
+    "\n",
+    "Image(filename=toDisplay)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3237a8f9",
+   "metadata": {},
+   "source": [
+    "## 4 - Saving the results"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0e09aee7",
+   "metadata": {},
+   "source": [
+    "Since plotting a histograms requires the corresponding TH1F object (and it usually takes time to fill), it is always recomended to save it into a ROOT file that can be opened later. \n",
+    "\n",
+    "To do so, we will have to create the ROOT file, with the option ```\"RECREATE\"```. Then, we will just have to point to this file with the ```cd()``` method and ```Write()``` each histogram. Finally, the file can be closed."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6c4f65f2",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "output = ROOT.TFile(\"output.root\", \"RECREATE\")\n",
+    "output.cd()\n",
+    "\n",
+    "hnMuon.Write()\n",
+    "hmuon_pt.Write()\n",
+    "hmuon_eta.Write()\n",
+    "hmuon1_pt.Write()\n",
+    "hmuon2_pt.Write()\n",
+    "hdimuon_mass.Write()\n",
+    "hmuon_eta_phi.Write()\n",
+    "hmuon_pt1_pt2.Write()\n",
+    "\n",
+    "output.Close()"
+   ]
+  }
+ ],
+ "metadata": {
+  "@webio": {
+   "lastCommId": null,
+   "lastKernelId": null
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.9"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
