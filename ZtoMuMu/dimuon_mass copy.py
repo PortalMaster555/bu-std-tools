@@ -19,7 +19,7 @@ hMass.GetXaxis().SetTitle("Invariant #mu#mu mass (GeV)")
 hMass.GetYaxis().SetTitle("Number of pairs")
 
 # make zoomed in hist from 0 to 20
-hMass2 = ROOT.TH1F("hMass2", "hMass2", 20, 0, 20)
+hMass2 = ROOT.TH1F("hMass2", "hMass2", 40, 0, 20)
 hMass2.GetXaxis().SetTitle("Invariant #mu#mu mass (GeV)")
 hMass2.GetYaxis().SetTitle("Number of pairs")
 
