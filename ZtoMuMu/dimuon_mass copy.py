@@ -32,7 +32,7 @@ hPass.GetXaxis().CenterLabels() # there is almost certainly a more efficient cla
 from tqdm import tqdm # nukes performance but at least i have progress bars
 
 for e in tqdm(range(t.GetEntries())):
-# for e in tqdm(range(0, 10000)):
+# for e in tqdm(range(0, 3000)):
     t.GetEntry(e)
     nMuon = t.nMuon
     if nMuon < 2:
@@ -55,15 +55,17 @@ for e in tqdm(range(t.GetEntries())):
             fourMomentaAndCharge.append([fourVec, muonCharges[i]]) # not nice, but it works
             nPasses = nPasses + 1
     hPass.Fill(nPasses)
+    pT = 0
+    invMass = 0
     for pair in combinations(fourMomentaAndCharge, 2):
         # print(pair[0][1], pair[1][1]) # print charges of each
         if(pair[0][1] != pair[1][1]): # if the charges are NOT the same
             p2 = pair[0][0] + pair[1][0] # add four momenta
-            # print(p2)
-            # print(p2.mass())
-            hMass.Fill(p2.mass())
-            if p2.mass() < 20:
-                hMass2.Fill(p2.mass())
+            invMass = p2.mass()
+            # tqdm.write(str(pT)+' '+str(invMass))
+            hMass.Fill(invMass)
+            if invMass < 20:
+                hMass2.Fill(invMass)
 
 print("Ding!")
 
@@ -71,14 +73,14 @@ canvas = ROOT.TCanvas("canvas", "canvas", 600, 600)
 canvas.cd() # To indicate we are going to draw here
 hMass.Draw()
 input()
-# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_charge_filtered.png")
+canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_charge_filtered.png")
 hMass2.Draw()
 canvas.Update()
 input()
-# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_0_20_charge_filtered.png")
+canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_0_20_charge_filtered.png")
 hPass.Draw()
 canvas.Update()
-# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/pass_count_charge_filtered.png")
+canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/pass_count_charge_filtered.png")
 input()
 
 myFile = ROOT.TFile.Open("zmumu.root", "RECREATE")
