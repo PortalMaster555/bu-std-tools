@@ -46,7 +46,7 @@ for e in tqdm(range(t.GetEntries())):
 canvas = ROOT.TCanvas("canvas", "My first canvas", 600, 500) # 600 and 500 and width and height of the canvas
 canvas.cd() # To indicate we are going to draw here
 hMass.Draw()
-canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_masses.png")
+canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses.png")
 hMass2.Draw()
-canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_masses_0_20.png")
+canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_0_20.png")
 print("ding")
