@@ -1,4 +1,6 @@
 import ROOT
+from itertools import combinations
+
 # Read the file
 file = ROOT.TFile.Open("~/Documents/BU/bu-std-tools/ZtoMuMu/43718dea-5cd4-48a7-b73b-df168edf1fac.root")
 
@@ -10,29 +12,24 @@ t = file.Get('Events')
 
 # t.Print("Muon_*")
 
-from itertools import combinations
-
-# To-Do: learn to make formatting global.
+ROOT.gStyle.SetHistFillColor(ROOT.kMagenta + 1)
 
 hMass = ROOT.TH1F("hMass", "hMass", 50, 0, 150)
-hMass.SetFillColor(ROOT.kMagenta + 1)
 hMass.GetXaxis().SetTitle("Invariant #mu#mu mass (GeV)")
 hMass.GetYaxis().SetTitle("Number of pairs")
 
 # make zoomed in hist from 0 to 20
 hMass2 = ROOT.TH1F("hMass2", "hMass2", 20, 0, 20)
-hMass2.SetFillColor(ROOT.kMagenta + 1)
 hMass2.GetXaxis().SetTitle("Invariant #mu#mu mass (GeV)")
 hMass2.GetYaxis().SetTitle("Number of pairs")
 
 hPass = ROOT.TH1F("hPass", "hPass", 4, 2, 6)
-hPass.SetFillColor(ROOT.kMagenta + 1)
 hPass.GetXaxis().SetTitle("Number of filter-allowed muons per event")
 hPass.GetYaxis().SetTitle("Number of events")
-hPass.GetXaxis().SetNdivisions(4, 0)
-hPass.GetXaxis().CenterLabels()
+hPass.GetXaxis().SetNdivisions(4, 0) # extremely hacky way of making the bar chart
+hPass.GetXaxis().CenterLabels() # there is almost certainly a more efficient class/function
 
-from tqdm import tqdm # nuke performance but at least i have progress bars
+from tqdm import tqdm # nukes performance but at least i have progress bars
 
 for e in tqdm(range(t.GetEntries())):
 # for e in tqdm(range(0, 10000)):
@@ -67,12 +64,25 @@ for e in tqdm(range(t.GetEntries())):
             hMass.Fill(p2.mass())
             if p2.mass() < 20:
                 hMass2.Fill(p2.mass())
-canvas = ROOT.TCanvas("canvas", "My first canvas", 600, 500) # 600 and 500 and width and height of the canvas
+
+print("Ding!")
+
+canvas = ROOT.TCanvas("canvas", "canvas", 600, 600)
 canvas.cd() # To indicate we are going to draw here
 hMass.Draw()
-canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_charge_filtered.png")
+input()
+# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_charge_filtered.png")
 hMass2.Draw()
-canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_0_20_charge_filtered.png")
+canvas.Update()
+input()
+# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/dimuon_masses_0_20_charge_filtered.png")
 hPass.Draw()
-canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/pass_count_charge_filtered.png")
-print("Ding!")
+canvas.Update()
+# canvas.SaveAs("~/Documents/BU/bu-std-tools/ZtoMuMu/dimuon_img/pass_count_charge_filtered.png")
+input()
+
+myFile = ROOT.TFile.Open("zmumu.root", "RECREATE")
+hMass.Write()
+hMass2.Write()
+hPass.Write()
+myFile.Close()
